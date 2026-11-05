@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O Incrível Simulador de Ego do Lucas 🚀</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f172a, #1e293b, #3b0764);
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            overflow-x: hidden;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-top: 10px;
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            color: #f43f5e;
+            text-shadow: 0 0 20px rgba(244, 63, 94, 0.6);
+            margin-bottom: 5px;
+        }
+
+        p.subtitle {
+            font-size: 1.1rem;
+            color: #94a3b8;
+        }
+
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-grow: 1;
+            margin: 20px 0;
+            position: relative;
+            width: 100%;
+            min-height: 400px;
+        }
+
+        /* Foto do Lucas com transição fluida */
+        .photo-wrapper {
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .photo-wrapper img {
+            width: 220px;
+            height: 220px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 6px solid #f43f5e;
+            box-shadow: 0 0 40px rgba(244, 63, 94, 0.5);
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        /* Efeito de tremor na tela quando fica grande */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            40% { transform: translate(1px, -1px) rotate(-1deg); }
+            60% { transform: translate(-1px, 2px) rotate(0deg); }
+            80% { transform: translate(3px, 1px) rotate(1deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        .shake-screen {
+            animation: shake 0.3s infinite;
+        }
+
+        /* Frases de status dinâmicas */
+        .status-box {
+            background: rgba(30, 41, 59, 0.8);
+            border: 2px solid #334155;
+            padding: 12px 25px;
+            border-radius: 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #38bdf8;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            margin-top: 20px;
+            text-align: center;
+            max-width: 90%;
+            z-index: 10;
+        }
+
+        /* Painel de Estatísticas */
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+            font-size: 0.95rem;
+            color: #cbd5e1;
+            z-index: 10;
+        }
+
+        .stats span {
+            background: rgba(15, 23, 42, 0.6);
+            padding: 6px 14px;
+            border-radius: 12px;
+            border: 1px solid #475569;
+        }
+
+        /* Textos flutuantes ao clicar */
+        .floating-text {
+            position: absolute;
+            font-weight: 900;
+            font-size: 1.5rem;
+            pointer-events: none;
+            animation: floatUp 1s ease-out forwards;
+            z-index: 100;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+
+        @keyframes floatUp {
+            0% {
+                opacity: 1;
+                transform: translateY(0) scale(0.8);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-100px) scale(1.4);
+            }
+        }
+
+        /* Botões de Ação */
+        .actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            z-index: 10;
+        }
+
+        .btn {
+            background: #22c55e;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);
+            transition: background 0.2s, transform 0.1s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background: #16a34a;
+            transform: scale(1.05);
+        }
+
+        .btn-reset {
+            background: #ef4444;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-reset:hover {
+            background: #dc2626;
+        }
+
+        footer {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-top: 15px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Medidor Oficial do Ego do Lucas 👑</h1>
+        <p class="subtitle">Clique na foto para inflar o ego (e o tamanho dele) até o talo!</p>
+    </header>
+
+    <div class="main-container" id="container">
+        <div class="photo-wrapper" id="photoWrapper" onclick="clicarLucas(event)">
+            <!-- Substitua 'lucas.jpg' pelo nome do arquivo da foto dele na mesma pasta -->
+            <img src="lucas.jpg" alt="Lucas Zueira" id="lucasImg" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'">
+        </div>
+
+        <div class="status-box" id="statusBox">
+            Status: Humilde (por enquanto...)
+        </div>
+
+        <div class="stats">
+            <span>Cliques: <strong id="clickCount">0</strong></span>
+            <span>Nível do Ego: <strong id="egoLevel">1%</strong></span>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-reset" onclick="resetar()">Zerar Ego 🔄</button>
+            <a href="#" class="btn" id="shareBtn" onclick="compartilhar(event)">Mandar no Zap 📱</a>
+        </div>
+    </div>
+
+    <footer>
+        Desenvolvido com muita zueira 🚀
+    </footer>
+
+    <script>
+        let cliques = 0;
+        let escala = 1;
+        const maxEscalaBeforeReset = 6.5; // Limite antes de dar uma zueira extra
+
+        const franquezaEgo = [
+            { limite: 0, texto: "Status: Humilde (por enquanto...)" },
+            { limite: 5, texto: "Status: Começando a achar que abriu a boiada 🐂" },
+            { limite: 12, texto: "Status: Já não cabe mais na porta de casa 🚪❌" },
+            { limite: 20, texto: "Status: Perigo! O ego atingiu a estratosfera 🛰️" },
+            { limite: 30, texto: "Status: ALERTA VERMELHO! Ele acha que é o dono do universo 🌌" },
+            { limite: 45, texto: "Status: DIVINDADE SUPREMA DA ZUEIRA 👑🔥" }
+        ];
+
+        const palavrasZueira = ["BRABO 🚀", "MONSTRO 💪", "EGO 1000% 📈", "LENDA 🐐", "FOGUETE 🛸", "IMPARÁVEL ⚡", "ESTOUROU 💥"];
+
+        function tocarEfeitoSonoro(frequencia = 400, tipo = 'sine', duracao = 0.08) {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = tipo;
+                osc.frequency.value = frequencia;
+                
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duracao);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + duracao);
+            } catch (e) {
+                // Navegador bloqueou áudio sem interação prévia ou sem suporte
+            }
+        }
+
+        function clicarLucas(event) {
+            cliques++;
+            document.getElementById('clickCount').innerText = cliques;
+            
+            // Aumenta a escala progressivamente
+            escala += 0.12;
+            let porcentagemEgo = Math.round(escala * 100);
+            document.getElementById('egoLevel').innerText = porcentagemEgo + '%';
+
+            const wrapper = document.getElementById('photoWrapper');
+            const img = document.getElementById('lucasImg');
+            
+            // Aplica escala e rotação leve aleatória
+            let rotacaoRandom = (Math.random() - 0.5) * 10;
+            wrapper.style.transform = `scale(${escala}) rotate(${rotacaoRandom}deg)`;
+
+            // Som com tom subindo conforme os cliques
+            tocarEfeitoSonoro(300 + (cliques * 25), 'triangle', 0.1);
+
+            // Atualiza frase de status
+            atualizarStatus(cliques);
+
+            // Cria texto flutuante na tela na posição do clique
+            criarTextoFlutuante(event.clientX, event.clientY);
+
+            // Efeito especial se crescer muito
+            if (cliques % 15 === 0) {
+                confetti({
+                    particleCount: 70,
+                    spread: 80,
+                    origin: { y: 0.6 }
+                });
+                tocarEfeitoSonoro(880, 'sine', 0.2);
+            }
+
+            // Se ficar gigante demais, dá uma tremida na tela
+            if (cliques > 25) {
+                document.body.classList.add('shake-screen');
+            }
+
+            // Se passar muito do limite, reseta com estilo de explosão
+            if (escala > maxEscalaBeforeReset) {
+                confetti({ particleCount: 150, spread: 120 });
+                alert("CABUM! O ego do Lucas explodiu de tanto crescer! 💥😂");
+                resetar();
+            }
+        }
+
+        function atualizarStatus(qtdCliques) {
+            let statusAtual = franquezaEgo[0].texto;
+            for (let i = 0; i < franquezaEgo.length; i++) {
+                if (qtdCliques >= franquezaEgo[i].limite) {
+                    statusAtual = franquezaEgo[i].texto;
+                }
+            }
+            document.getElementById('statusBox').innerText = statusAtual;
+        }
+
+        function criarTextoFlutuante(x, y) {
+            const el = document.createElement('div');
+            el.className = 'floating-text';
+            el.innerText = palavrasZueira[Math.floor(Math.random() * palavrasZueira.length)];
+            
+            // Cores aleatórias chamativas
+            const cores = ['#38bdf8', '#f43f5e', '#facc15', '#4ade80', '#c084fc'];
+            el.style.color = cores[Math.floor(Math.random() * cores.length)];
+            
+            // Posição ajustada ao clique
+            el.style.left = (x - 40 + (Math.random() * 40 - 20)) + 'px';
+            el.style.top = (y - 40) + 'px';
+            
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 1000);
+        }
+
+        function resetar() {
+            cliques = 0;
+            escala = 1;
+            document.getElementById('clickCount').innerText = '0';
+            document.getElementById('egoLevel').innerText = '100%';
+            document.getElementById('photoWrapper').style.transform = 'scale(1) rotate(0deg)';
+            document.getElementById('statusBox').innerText = franquezaEgo[0].texto;
+            document.getElementById('body').classList.remove('shake-screen');
+        }
+
+        function compartilhar(e) {
+            e.preventDefault();
+            const texto = encodeURIComponent("Cara, achei o simulador oficial do seu ego na internet, entra aí pra ver o tamanho que você fica kkkk: " + window.location.href);
+            window.open(`https://api.whatsapp.com/send?text=${texto}`, '_blank');
+        }
+    </script>
+</body>
+</html>

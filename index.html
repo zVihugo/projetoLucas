@@ -189,6 +189,87 @@
             margin-top: 15px;
             text-align: center;
         }
+
+        /* Balão de fala estilo RPG */
+        .balao {
+            position: fixed;
+            max-width: 220px;
+            background: #fff;
+            color: #0f172a;
+            font-weight: 800;
+            font-size: 1rem;
+            padding: 10px 16px;
+            border-radius: 18px;
+            border: 3px solid #0f172a;
+            box-shadow: 4px 4px 0 rgba(0,0,0,0.5);
+            z-index: 200;
+            pointer-events: none;
+            animation: balaoPop 2.5s ease-out forwards;
+        }
+
+        .balao::after {
+            content: "";
+            position: absolute;
+            left: 22px;
+            bottom: -16px;
+            border-width: 14px 10px 0 10px;
+            border-style: solid;
+            border-color: #0f172a transparent transparent transparent;
+        }
+
+        @keyframes balaoPop {
+            0% { opacity: 0; transform: scale(0.3) translateY(10px); }
+            12% { opacity: 1; transform: scale(1.1) translateY(0); }
+            20% { transform: scale(1); }
+            85% { opacity: 1; }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+
+        /* Modo Nuclear / Explosão de Ego */
+        .boss-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            background: rgba(220, 0, 0, 0.88);
+            animation: alarmePisca 0.5s infinite alternate;
+        }
+
+        .boss-overlay.ativo {
+            display: flex;
+        }
+
+        .boss-overlay h2 {
+            font-size: clamp(2rem, 7vw, 5rem);
+            font-weight: 900;
+            text-transform: uppercase;
+            color: #fff;
+            text-shadow: 0 0 30px #000, 4px 4px 0 #7f1d1d;
+            animation: bossTremor 0.15s infinite;
+        }
+
+        .boss-overlay p {
+            margin-top: 24px;
+            font-size: 1rem;
+            color: #fecaca;
+        }
+
+        @keyframes alarmePisca {
+            from { background: rgba(220, 0, 0, 0.92); }
+            to { background: rgba(120, 0, 0, 0.92); }
+        }
+
+        @keyframes bossTremor {
+            0% { transform: translate(2px, 2px); }
+            50% { transform: translate(-3px, 1px); }
+            100% { transform: translate(1px, -2px); }
+        }
     </style>
 </head>
 <body>
@@ -211,12 +292,18 @@
         <div class="stats">
             <span>Cliques: <strong id="clickCount">0</strong></span>
             <span>Nível do Ego: <strong id="egoLevel">100%</strong></span>
+            <span>Calorias de Ego: <strong id="caloriasEgo">0</strong> kcal 🔥</span>
         </div>
 
         <div class="actions">
             <button class="btn btn-reset" onclick="resetar()">Zerar Ego 🔄</button>
             <a href="#" class="btn" id="shareBtn" onclick="compartilhar(event)">Mandar no Zap 📱</a>
         </div>
+    </div>
+
+    <div class="boss-overlay" id="bossOverlay" onclick="resetar()">
+        <h2>🚨 ALERTA MÁXIMO: O Lucas ultrapassou os limites da gravidade terrestre! 🚀</h2>
+        <p>(clique na tela para acalmar o ego)</p>
     </div>
 
     <footer>
@@ -226,7 +313,13 @@
     <script>
         let cliques = 0;
         let escala = 1;
-        const maxEscalaBeforeReset = 6.5; // Limite antes de dar uma zueira extra
+        let bossAtivo = false;
+        let bossTimeout = null;
+        let alarmeTimer = null;
+        let audioCtx = null;
+        let temposCliques = [];
+
+        const CLIQUES_BOSS = 50; // Cliques para disparar o Modo Nuclear
 
         const franquezaEgo = [
             { limite: 0, texto: "Status: Humilde (por enquanto...)" },
@@ -239,54 +332,209 @@
 
         const palavrasZueira = ["BRABO 🚀", "MONSTRO 💪", "EGO 1000% 📈", "LENDA 🐐", "FOGUETE 🛸", "IMPARÁVEL ⚡", "ESTOUROU 💥"];
 
-        function tocarEfeitoSonoro(frequencia = 400, tipo = 'sine', duracao = 0.08) {
+        const baloesRPG = [
+            "Tô gigante!",
+            "Chama o bombeiro que eu tô pegando fogo! 🔥",
+            "Alguém me segura!",
+            "Não caibo mais na foto!",
+            "Avisa a NASA que eu tô chegando! 🛰️",
+            "Meu ego já tem CEP próprio!",
+            "Cuidado com a minha sombra!",
+            "Eu já nasci assim, brabo!"
+        ];
+
+        // ---------- ÁUDIO (Web Audio API) ----------
+
+        // Reaproveita um único AudioContext (criar um por clique estoura o limite do navegador)
+        function getAudio() {
             try {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                
-                osc.type = tipo;
-                osc.frequency.value = frequencia;
-                
-                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duracao);
-                
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                
-                osc.start();
-                osc.stop(audioCtx.currentTime + duracao);
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                return audioCtx;
             } catch (e) {
-                // Navegador bloqueou áudio sem interação prévia ou sem suporte
+                return null;
             }
         }
 
+        function tocarEfeitoSonoro(frequencia = 400, tipo = 'sine', duracao = 0.08) {
+            const ctx = getAudio();
+            if (!ctx) return;
+            const t = ctx.currentTime;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = tipo;
+            osc.frequency.value = frequencia;
+            gain.gain.setValueAtTime(0.15, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + duracao);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t);
+            osc.stop(t + duracao);
+        }
+
+        // Apito de desenho animado: o tom sobe rapidinho
+        function somApito(base) {
+            const ctx = getAudio();
+            if (!ctx) return;
+            const t = ctx.currentTime;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(base, t);
+            osc.frequency.exponentialRampToValueAtTime(base * 2.6, t + 0.2);
+            gain.gain.setValueAtTime(0.18, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t);
+            osc.stop(t + 0.22);
+        }
+
+        // Pneu cantando: ruído passando por um filtro que desliza
+        function somPneu() {
+            const ctx = getAudio();
+            if (!ctx) return;
+            const t = ctx.currentTime;
+            const dur = 0.6;
+            const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+            const dados = buffer.getChannelData(0);
+            for (let i = 0; i < dados.length; i++) {
+                dados[i] = Math.random() * 2 - 1;
+            }
+            const fonte = ctx.createBufferSource();
+            fonte.buffer = buffer;
+            const filtro = ctx.createBiquadFilter();
+            filtro.type = 'bandpass';
+            filtro.Q.value = 8;
+            filtro.frequency.setValueAtTime(2400, t);
+            filtro.frequency.exponentialRampToValueAtTime(900, t + dur);
+            const gain = ctx.createGain();
+            gain.gain.setValueAtTime(0.35, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+            fonte.connect(filtro);
+            filtro.connect(gain);
+            gain.connect(ctx.destination);
+            fonte.start(t);
+        }
+
+        // Balão murchando: serra caindo de tom com tremolo ("prrrrrrfffiiu")
+        function somBalao() {
+            const ctx = getAudio();
+            if (!ctx) return;
+            const t = ctx.currentTime;
+            const dur = 0.7;
+            const osc = ctx.createOscillator();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(900, t);
+            osc.frequency.exponentialRampToValueAtTime(150, t + dur);
+            const gain = ctx.createGain();
+            gain.gain.setValueAtTime(0.12, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+            const lfo = ctx.createOscillator();
+            const lfoGain = ctx.createGain();
+            lfo.frequency.value = 35;
+            lfoGain.gain.value = 0.08;
+            lfo.connect(lfoGain);
+            lfoGain.connect(gain.gain);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t);
+            lfo.start(t);
+            osc.stop(t + dur);
+            lfo.stop(t + dur);
+        }
+
+        // Clicou rápido: de vez em quando solta pneu cantando ou balão murchando
+        function somDoClique() {
+            const agora = Date.now();
+            temposCliques = temposCliques.filter(x => agora - x < 1500);
+            temposCliques.push(agora);
+
+            const rapido = temposCliques.length >= 5;
+            if (rapido && cliques % 3 === 0) {
+                if (Math.random() < 0.5) {
+                    somPneu();
+                } else {
+                    somBalao();
+                }
+            } else {
+                somApito(300 + Math.min(cliques, 60) * 12);
+            }
+        }
+
+        // Alarme dramático: sirene que sobe e repete
+        function iniciarAlarme() {
+            const ctx = getAudio();
+            if (!ctx) return;
+            pararAlarme();
+            const sirene = () => {
+                const t = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(500, t);
+                osc.frequency.linearRampToValueAtTime(950, t + 0.45);
+                gain.gain.setValueAtTime(0.18, t);
+                gain.gain.linearRampToValueAtTime(0.0001, t + 0.5);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(t);
+                osc.stop(t + 0.5);
+            };
+            sirene();
+            alarmeTimer = setInterval(sirene, 500);
+        }
+
+        function pararAlarme() {
+            clearInterval(alarmeTimer);
+            alarmeTimer = null;
+        }
+
+        // ---------- MODO NUCLEAR ----------
+
+        function ativarBoss() {
+            bossAtivo = true;
+            document.getElementById('bossOverlay').classList.add('ativo');
+            iniciarAlarme();
+            confetti({ particleCount: 150, spread: 120 });
+            bossTimeout = setTimeout(resetar, 8000);
+        }
+
+        // ---------- JOGO ----------
+
         function clicarLucas(event) {
+            if (bossAtivo) return;
+
             cliques++;
             document.getElementById('clickCount').innerText = cliques;
-            
-            // Aumenta a escala progressivamente
-            escala += 0.12;
-            let porcentagemEgo = Math.round(escala * 100);
-            document.getElementById('egoLevel').innerText = porcentagemEgo + '%';
+
+            // Aumenta a escala progressivamente (chega em ~450% no clique 50)
+            escala = 1 + cliques * 0.07;
+            document.getElementById('egoLevel').innerText = Math.round(escala * 100) + '%';
+
+            // Calorias fictícias: cresce mais rápido a cada clique
+            const calorias = Math.round(cliques * cliques * 1.5 + cliques * 20);
+            document.getElementById('caloriasEgo').innerText = calorias.toLocaleString('pt-BR');
 
             const wrapper = document.getElementById('photoWrapper');
-            const img = document.getElementById('lucasImg');
-            
+
             // Aplica escala e rotação leve aleatória
-            let rotacaoRandom = (Math.random() - 0.5) * 10;
+            const rotacaoRandom = (Math.random() - 0.5) * 10;
             wrapper.style.transform = `scale(${escala}) rotate(${rotacaoRandom}deg)`;
 
-            // Som com tom subindo conforme os cliques
-            tocarEfeitoSonoro(300 + (cliques * 25), 'triangle', 0.1);
-
-            // Atualiza frase de status
+            somDoClique();
             atualizarStatus(cliques);
-
-            // Cria texto flutuante na tela na posição do clique
             criarTextoFlutuante(event.clientX, event.clientY);
 
-            // Efeito especial se crescer muito
+            // Balão de fala a cada 5 cliques
+            if (cliques % 5 === 0) {
+                criarBalao();
+            }
+
             if (cliques % 15 === 0) {
                 confetti({
                     particleCount: 70,
@@ -301,11 +549,8 @@
                 document.body.classList.add('shake-screen');
             }
 
-            // Se passar muito do limite, reseta com estilo de explosão
-            if (escala > maxEscalaBeforeReset) {
-                confetti({ particleCount: 150, spread: 120 });
-                alert("CABUM! O ego do Lucas explodiu de tanto crescer! 💥😂");
-                resetar();
+            if (cliques >= CLIQUES_BOSS) {
+                ativarBoss();
             }
         }
 
@@ -323,24 +568,48 @@
             const el = document.createElement('div');
             el.className = 'floating-text';
             el.innerText = palavrasZueira[Math.floor(Math.random() * palavrasZueira.length)];
-            
+
             // Cores aleatórias chamativas
             const cores = ['#38bdf8', '#f43f5e', '#facc15', '#4ade80', '#c084fc'];
             el.style.color = cores[Math.floor(Math.random() * cores.length)];
-            
+
             // Posição ajustada ao clique
             el.style.left = (x - 40 + (Math.random() * 40 - 20)) + 'px';
             el.style.top = (y - 40) + 'px';
-            
+
             document.body.appendChild(el);
             setTimeout(() => el.remove(), 1000);
         }
 
+        // Balão de diálogo saindo do canto da foto (sempre dentro da tela)
+        function criarBalao() {
+            const rect = document.getElementById('photoWrapper').getBoundingClientRect();
+            const el = document.createElement('div');
+            el.className = 'balao';
+            el.innerText = baloesRPG[Math.floor(Math.random() * baloesRPG.length)];
+
+            const esquerda = Math.min(Math.max(10, rect.right - 40), window.innerWidth - 240);
+            const topo = Math.min(Math.max(10, rect.top - 20), window.innerHeight - 100);
+            el.style.left = esquerda + 'px';
+            el.style.top = topo + 'px';
+
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 2500);
+        }
+
         function resetar() {
+            clearTimeout(bossTimeout);
+            pararAlarme();
+            bossAtivo = false;
+            temposCliques = [];
+            document.getElementById('bossOverlay').classList.remove('ativo');
+            document.querySelectorAll('.balao').forEach(b => b.remove());
+
             cliques = 0;
             escala = 1;
             document.getElementById('clickCount').innerText = '0';
             document.getElementById('egoLevel').innerText = '100%';
+            document.getElementById('caloriasEgo').innerText = '0';
             document.getElementById('photoWrapper').style.transform = 'scale(1) rotate(0deg)';
             document.getElementById('statusBox').innerText = franquezaEgo[0].texto;
             document.body.classList.remove('shake-screen');

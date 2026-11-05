@@ -210,7 +210,7 @@
 
         <div class="stats">
             <span>Cliques: <strong id="clickCount">0</strong></span>
-            <span>Nível do Ego: <strong id="egoLevel">1%</strong></span>
+            <span>Nível do Ego: <strong id="egoLevel">100%</strong></span>
         </div>
 
         <div class="actions">
@@ -343,7 +343,7 @@
             document.getElementById('egoLevel').innerText = '100%';
             document.getElementById('photoWrapper').style.transform = 'scale(1) rotate(0deg)';
             document.getElementById('statusBox').innerText = franquezaEgo[0].texto;
-            document.getElementById('body').classList.remove('shake-screen');
+            document.body.classList.remove('shake-screen');
         }
 
         function compartilhar(e) {
